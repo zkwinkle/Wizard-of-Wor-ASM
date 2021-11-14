@@ -1,3 +1,6 @@
+.eqv GENID 1 # pseudo-random generator id
+.eqv VISIBILITYTIME 180 # counter for how long enemies should stay visible, 180 = 9s (?)
+.eqv ENEMYOFFSET 8 # if this is change the calc of $s1 in 'SpawnEnemy:' must be changed
 .data
 	# Colors
 	colorOne:		.word 0x00ff8000
@@ -6,6 +9,10 @@
 	backgroundColor:	.word 0x00000000
 	blueColor:		.word 0x001c57fe
 	redColor:		.word 0x00de1a1a
+	enemyGreenColor:	.word 0x00045d0d
+	enemyRedColor:		.word 0x00a00000
+	enemyPurpleColor:	.word 0x003a0e73
+	enemyBlueColor:		.word 0x000e2973
 
 	# Level info
 	lvl:			.word 0  # Denotes the current lvl, 1-3
@@ -31,13 +38,15 @@
 	EnemyDir:		.word 0 # 0=up, 1=down, 2=right, 3=left
 	EnemyX:			.word 0
 	EnemyY:			.word 0
-	visibilityTimer:	.word 0
+	Visible:		.word 0
+	VisibilityTimer:	.word 0
+	MobilityTimer:		.word 0
 
 	# For more than one enemy the data is stored in the same scheme as above in the static data
-	# But every enemy's data is offset by 6, For example:
+	# But every enemy's data is offset by 8, For example:
 	# enemy 0's Active is offset by 0
-	# enemy 1's Active is offset by 6*4
-	# enemy 2's Active is offset by 12*4...
+	# enemy 1's Active is offset by 8*4
+	# enemy 2's Active is offset by 16*4...
 
 	# Maximum of 8 enemies
 
@@ -217,22 +226,37 @@ NewGame:
 		jal DrawPoint
 		
 startWait:
-		lw $t1, 0xFFFF0004		# check to see which key has been pressed
-		beq $t1, 0x00000031, BeginGame # 1 pressed
-		
-		li $a0, 250	#
-		li $v0, 32	# pause for 250 milisec
-		syscall		#
-		
-		j startWait    # Jump back to the top of the wait loop
+	lw $t1, 0xFFFF0004		# check to see which key has been pressed
+	beq $t1, 0x00000031, BeginGame # 1 pressed
+	
+	li $a0, 250	#
+	li $v0, 32	# pause for 250 milisec
+	syscall		#
+	
+	j startWait    # Jump back to the top of the wait loop
 		
 BeginGame:
-		sw $zero, 0xFFFF0000		# clear the button pushed bit
-		li $t1, 1
-		sw $t1, lvl
+	sw $zero, 0xFFFF0000		# clear the button pushed bit
+	li $t1, 1
+	sw $t1, lvl
+	# initialize random seed based on time
+	li $v0, 30
+	syscall # get time
+	move $a1, $a0 # move low order time into a1
+	li $a0, GENID
+	li $v0, 40
+	syscall
+
+	# Set player lives
+	li $t0, 3
+	sw $t0, lives
 		
 
-# $s0 se usa en standby y en MovePlayer
+# $s0 se usa en standby, en MovePlayer y en SpawnEnemy
+# $s1 se usa en SpawnEnemy
+# $s2 se usa en el loop inicial de spawnear enemigos iniciales (spawnInitialEnemies)
+# $s6 guarda la cantidad de enemigos iniciales
+# $s7 guarda el counter/timer para spawns de enemigos
 NewRound:
 	# Initializa static data
 	li $t0, 1
@@ -243,8 +267,6 @@ NewRound:
 	sw $t0, playerY
 	li $t0, 0
 	sw $t0, playerShoot
-	li $t0, 3
-	sw $t0, lives
 	li $t0, 0
 	sw $t0, playerState
 	li $t0, 0
@@ -252,31 +274,46 @@ NewRound:
 	li $t0, 0
 	sw $t0, EnemiesSpawned
 
-	li $t1, 8
-	li $t2, 0
+	li $t1, 0 # i
+	li $t2, 0 # offset
 	resetEnemies:
 		sll $t3, $t2, 2 # x4
 		sw $zero, Active($t3) # store 0
 
-		addi $t1, $t1, -1 # reverse order j ust because
-		addi $t2, $t2, 6 # +6
-		bne $t1, $zero, resetEnemies
+		addi $t1, $t1, 1 # i++
+		addi $t2, $t2, ENEMYOFFSET # +8 (atm of editing this)
+		blt $t1, 8, resetEnemies
+	
+	# determine initial amount of enemies
+	li $a1, 4
+	jal RandomInt
+	addi $a0, $a0, 2
+	move $s6, $a0
+
+	li $s2, 0
+	spawnInitialEnemies:
+		li $s7, 0 #set spawn timer to 0
+		jal SpawnEnemy
+		addi $s2, $s2, 1 # i++
+		blt $s2, $s6, spawnInitialEnemies
 
 	jal ClearBoard
 
 	jal DrawMap
 	
-	li $a0, 1000	#
-	li $v0, 32	# pause for 1 second
+	li $a0, 200	#
+	li $v0, 32	# pause for 0.2 second
 		syscall		#
 
 DrawObjects: 
 	jal MovePlayer
+	jal SpawnEnemy
+	jal DrawEnemies
 
 # Wait and read buttons
 Begin_standby:	
 		move $s0, $zero
-		li $t0, 0x00000005			# load 25 into the counter for a ~50 milisec standby
+		li $t0, 0x00000005			# 5 = 50ms delay
 	
 Standby:
 	blez $t0, EndStandby
@@ -556,14 +593,14 @@ DrawMap:
 	# radar rectangle
 	li $a0, 25
 	li $a1, 25
-	li $a3, 30
+	li $a3, 31
 	jal DrawVerticalLine
 
 	li $a0, 37
 	jal DrawVerticalLine
 
 	li $a0, 25
-	li $a1, 30
+	li $a1, 31
 	li $a3, 37
 	jal DrawHorizontalLine
 
@@ -1117,6 +1154,200 @@ DrawPlayer:
 		jal DrawPoint
 		j PDDone
 	PDDone:
+
+	lw $ra, 0($sp)		# put return back
+	addi $sp, $sp, 4
+
+	jr $ra
+
+# $a1, upper bound
+# $a0, receives random int
+RandomInt:
+	li $v0, 42
+	li $a0, GENID
+	syscall
+	jr $ra
+
+# $a0, enemy color (0-3)
+# $v0, return's counter
+CalcMobilityTime:
+	# maps $a0=0-3 to $v0=[9, 7, 5, 3]
+	li $v0, 3
+	sub $v0, $v0, $a0
+	sll $v0, $v0, 2
+	addi $v0, $v0, 3
+	jr $ra
+
+
+SpawnEnemy:
+	# make space in stack for return address
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+
+	# Max number of spawns = 8
+	lw $s0, EnemiesSpawned
+	bge $s0, 9, FinishSpawn
+
+	# Check spawn timer
+	bgtz $s7, DecreaseSpawnTimer
+
+	bge $s0, $s6, RandomColor
+	InitialGreens:
+		move $t1, $zero
+		j ColorChosen
+
+	RandomColor:
+		# generate random color
+		li $a1, 4
+		jal RandomInt
+		move $t1, $a0
+
+	ColorChosen:
+		# use the # of enemy that is being spawned and update it's color, activeness, initial dir, inital x and initial y
+		
+		sll $s1, $s0, 3 #multiply by 8 (because of enemy offset)
+		sll $s1, $s1, 2 # x4 because of memory addressing
+		# Save color
+		sw $t1, EnemyColor($s1)
+
+		# Update mobility timer
+		move $a0, $t1
+		jal CalcMobilityTime
+		sw $v0, MobilityTimer($s1)
+
+		# Turn on active 
+		li $t0, 1
+		sw $t0, Active($s1)
+
+		# generate random dir
+		li $a1, 4
+		jal RandomInt
+		move $t2, $a0
+
+		sw $t2, EnemyDir($s1)
+
+		# generate random X
+		li $a1, 11
+		jal RandomInt
+		move $t3, $a0
+		sll $t3, $t3, 2 # multiply tile by 4
+		addi $t3, $t3, 10 # add 10 min bound for horizontal tile
+
+		sw $t3, EnemyX($s1)
+
+		# generate random Y
+		li $a1, 6
+		jal RandomInt
+		move $t4, $a0
+		sll $t4, $t4, 2 # multiply tile by 4
+		addi $t4, $t4, 1 # add 1 min bound for vertical tile
+
+		sw $t4, EnemyY($s1)
+
+		# make visible
+		li $t5, 1
+		sw $t5, Visible($s1)
+
+		# update visibility timer
+		li $t6, VISIBILITYTIME
+		sw $t6, VisibilityTimer($s1)
+
+		# Reset spawn timer 2-5s (40-100)
+		li $a1, 60
+		jal RandomInt
+		addi $a0, $a0, 40
+		move $s7, $a0
+
+		# Increment enemies spawned
+		addi $s0, $s0, 1
+		sw $s0, EnemiesSpawned
+
+	DecreaseSpawnTimer:
+		addi $s7, $s7, -1
+
+	FinishSpawn:
+		lw $ra, 0($sp)		# put return back
+		addi $sp, $sp, 4
+
+		jr $ra
+
+DrawEnemies:
+	# make space in stack for return address
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+
+	li $t1, 0 # i (counter)
+	li $t2, 0 # offset
+	D1E: # D1E = Draw 1 Enemy
+		sll $t3, $t2, 2 # x4
+		lw $t0, Active($t3) # get activeness
+		beq $t0, 0, SkipD1E
+
+		lw $a0, EnemyX($t3)
+		lw $a1, EnemyY($t3)
+
+		# get color
+		lw $t4, EnemyColor($t3)
+		beq $t4, 0, IsGreen
+		beq $t4, 1, IsRed
+		beq $t4, 2, IsPurple
+		beq $t4, 3, IsBlue
+		
+		IsGreen:
+			lw $a2, enemyGreenColor
+			j IsColorDone
+		IsRed:
+			lw $a2, enemyRedColor
+			j IsColorDone
+		IsPurple:
+			lw $a2, enemyPurpleColor
+			j IsColorDone
+		IsBlue:
+			lw $a2, enemyBlueColor
+		IsColorDone:
+
+		# make space in stack for counters
+		addi $sp, $sp, -8
+		sw $t1, 4($sp)
+		sw $t2, 0($sp)
+
+		jal DrawEnemy
+
+		# restore counters
+		lw $t1, 4($sp)
+		lw $t2, 0($sp)
+		addi $sp, $sp, 8
+
+		SkipD1E:
+		addi $t1, $t1, 1 
+		addi $t2, $t2, ENEMYOFFSET
+		blt $t1, 8, D1E
+
+	lw $ra, 0($sp)		# put return back
+	addi $sp, $sp, 4
+
+	jr $ra
+
+# $a0: enemy x
+# $a1: enemy y
+# $a2: enemy color
+DrawEnemy:
+	# make space in stack for return address
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+
+	jal DrawPoint
+	addi $a0, $a0, 1
+	addi $a1, $a1, 1
+	jal DrawPoint
+	addi $a0, $a0, 1
+	addi $a1, $a1, 1
+	jal DrawPoint
+	addi $a1, $a1, -2
+	jal DrawPoint
+	addi $a1, $a1, 2
+	addi $a0, $a0, -2
+	jal DrawPoint
 
 	lw $ra, 0($sp)		# put return back
 	addi $sp, $sp, 4
