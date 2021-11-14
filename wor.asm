@@ -420,7 +420,7 @@ DrawMap:
 
 	lw $a2, redColor
 
-	# main erctangle
+	# main rectangle
 	li $a0, 9
 	li $a1, 0
 	li $a3, 53
@@ -535,22 +535,22 @@ DrawMap:
 	jal DrawVerticalLine
 
 	# middle low-low verticals
-	li $a0, 16
+	li $a0, 17
 	li $a1, 16
 	li $a3, 20
 	jal DrawVerticalLine
 
-	li $a0, 46
+	li $a0, 45
 	jal DrawVerticalLine
 
 	# middle low horizontals
-	li $a0, 16
+	li $a0, 17
 	li $a1, 16
 	li $a3, 25
 	jal DrawHorizontalLine
 
 	li $a0, 37
-	li $a3, 46
+	li $a3, 45
 	jal DrawHorizontalLine
 
 	# radar rectangle
@@ -735,8 +735,8 @@ CheckWallCollisions:
 		slti $t3, $t9, 17
 		nor $t3, $t3, $zero
 		and $t4, $t2, $t3
-		slti $t5, $a0, 17
-		slti $t6, $t8, 17
+		slti $t5, $a0, 18
+		slti $t6, $t8, 18
 		nor $t6, $t6, $zero
 		and $t7, $t5, $t6
 		and $v0, $t4, $t7
@@ -747,7 +747,7 @@ CheckWallCollisions:
 		nor $t3, $t3, $zero
 		and $t4, $t2, $t3
 		slti $t5, $a0, 26
-		slti $t6, $t8, 17
+		slti $t6, $t8, 18
 		nor $t6, $t6, $zero
 		and $t7, $t5, $t6
 		and $v0, $t4, $t7
@@ -803,8 +803,8 @@ CheckWallCollisions:
 		slti $t3, $t9, 17
 		nor $t3, $t3, $zero
 		and $t4, $t2, $t3
-		slti $t5, $a0, 47
-		slti $t6, $t8, 47
+		slti $t5, $a0, 46
+		slti $t6, $t8, 46
 		nor $t6, $t6, $zero
 		and $t7, $t5, $t6
 		and $v0, $t4, $t7
@@ -814,7 +814,7 @@ CheckWallCollisions:
 		slti $t3, $t9, 17
 		nor $t3, $t3, $zero
 		and $t4, $t2, $t3
-		slti $t5, $a0, 47
+		slti $t5, $a0, 46
 		slti $t6, $t8, 38
 		nor $t6, $t6, $zero
 		and $t7, $t5, $t6
