@@ -21,12 +21,13 @@
 	playerDir:		.word 0 # 0=up, 1=down, 2=right, 3=left
 	playerX:		.word 0
 	playerY:		.word 0
-	playerShoot:		.word 0 # 0 = no shot active, 1 = shot active
 	lives:			.word 0
 	playerState:		.word 0 # 0=INITIAL, 1=MOVING, 2=STATIC
 	kills:			.word 0
 
 	# Shot info
+	shotFired:		.word 0 # flag to check if spacebar was pressed
+	playerShoot:		.word 0 # 0 = no shot active, 1 = shot active
 	shotDir:		.word 0 # same as playerDir
 	shotX:			.word 0
 	shotY:			.word 0
@@ -252,7 +253,7 @@ BeginGame:
 	sw $t0, lives
 		
 
-# $s0 se usa en standby, en MovePlayer, en SpawnEnemy y en MoveEnemies
+# $s0 se usa en standby, en MovePlayer, en SpawnEnemy, en MoveEnemies y en MoveShot
 # $s1 se usa en SpawnEnemy, en MoveEnemies y en DrawLives
 # $s2 se usa en el loop inicial de spawnear enemigos iniciales (spawnInitialEnemies), en MoveEnemies y en DrawLives
 # $s3 se usa en MoveEnemies y DrawLives
@@ -299,10 +300,9 @@ NewLife:
 	sw $t0, playerX
 	li $t0, 25
 	sw $t0, playerY
-	li $t0, 0
-	sw $t0, playerShoot
-	li $t0, 0
-	sw $t0, playerState
+	sw $zero, shotFired
+	sw $zero, playerShoot
+	sw $zero, playerState
 
 	jal DrawLives
 	
@@ -311,8 +311,9 @@ NewLife:
 	syscall		#
 
 DrawObjects: 
-	jal MovePlayer
 	jal SpawnEnemy
+	jal MovePlayer
+	jal MoveShot
 	jal MoveEnemies
 
 # Wait and read buttons
@@ -406,6 +407,11 @@ AdjustDir_left:
 
 AdjustDir_shoot:
 	bne $a0, 32, AdjustDir_finish # spacebar
+	lw $t0, playerShoot
+	bne $t0, $zero, AdjustDir_finish # block shooting if there's already a shot out there
+
+	li $t0, 1
+	sw $t0, shotFired
 	j AdjustDir_finish # Don't set the dir to whatever's in $t0
 
 AdjustDir_none:
@@ -918,6 +924,196 @@ CheckWallCollisions:
 	wallColDone:
 		jr $ra
 
+MoveShot:
+	#objective: erase old position, look at dir, increase pos in right dir, draw shot, check collisions with walls and possibly terminate shot
+
+	# make space in stack for return address
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	
+	# check shot activeness
+	lw $t0, playerShoot
+	beq $t0, $zero, FinishMovingShot
+
+	lw $t9, shotDir
+	beq $t9, 0, sMUp
+	beq $t9, 1, sMDown
+	beq $t9, 2, sMRight
+	beq $t9, 3, sMLeft
+	
+	#sM = shot Move
+	sMUp:
+		lw $a0, shotX
+		lw $s0, shotY
+		addi $s0, $s0, -2
+		move $a1, $s0
+		li $a2, 1
+		jal CheckWallCollisions
+		bne $v0, $zero, sMCollide
+
+		# Check intermediate step
+		addi $a1, $a1, 1
+		jal CheckWallCollisions
+		bne $v0, $zero, sMCollide
+		addi $a1, $a1, -1
+
+		sw $s0, shotY
+
+		# draw new pos
+		lw $a2 blueColor
+		jal DrawPoint
+
+		# erase previous pos
+		lw $a2, backgroundColor
+		addi $a1, $a1, 2
+		jal DrawPoint
+
+		j FinishMovingShot
+
+	sMDown:
+		lw $a0, shotX
+		lw $s0, shotY
+		addi $s0, $s0, 2
+		move $a1, $s0
+		li $a2, 1
+		jal CheckWallCollisions
+		bne $v0, $zero, sMCollide
+
+		# Check intermediate step
+		addi $a1, $a1, -1
+		jal CheckWallCollisions
+		bne $v0, $zero, sMCollide
+		addi $a1, $a1, 1
+
+		sw $s0, shotY
+
+		# draw new pos
+		lw $a2 blueColor
+		jal DrawPoint
+
+		# erase previous pos
+		lw $a2, backgroundColor
+		addi $a1, $a1, -2
+		jal DrawPoint
+
+		j FinishMovingShot
+	sMRight:
+		lw $s0, shotX
+		lw $a1, shotY
+		addi $s0, $s0, 2
+		move $a0, $s0
+		li $a2, 1
+		jal CheckWallCollisions
+		bne $v0, $zero, sMCollide
+
+		# Check intermediate step
+		addi $a0, $a0, -1
+		jal CheckWallCollisions
+		bne $v0, $zero, sMCollide
+		addi $a0, $a0, 1
+
+		# check if shot is warping to left
+		slti $t0, $a0, 59
+		beq $t0, $zero, warpShotLeft
+
+		sw $s0, shotX
+
+		# draw new pos
+		lw $a2 blueColor
+		jal DrawPoint
+
+		# erase previous pos
+		lw $a2, backgroundColor
+		addi $a0, $a0, -2
+		jal DrawPoint
+
+		j FinishMovingShot
+	sMLeft:
+		lw $s0, shotX
+		lw $a1, shotY
+		addi $s0, $s0, -2
+		move $a0, $s0
+		li $a2, 1
+		jal CheckWallCollisions
+		bne $v0, $zero, sMCollide
+
+		# Check intermediate step
+		addi $a0, $a0, 1
+		jal CheckWallCollisions
+		bne $v0, $zero, sMCollide
+		addi $a0, $a0, -1
+
+		# check if shot is warping to right
+		slti $t0, $a0, 4
+		bne $t0, $zero, warpShotRight
+
+		sw $s0, shotX
+
+		# draw new pos
+		lw $a2 blueColor
+		jal DrawPoint
+
+		# erase previous pos
+		lw $a2, backgroundColor
+		addi $a0, $a0, 2
+		jal DrawPoint
+
+		j FinishMovingShot
+	sMCollide:
+		# erase shot
+		lw $a2, backgroundColor
+		lw $a0, shotX
+		lw $a1, shotY
+		jal DrawPoint
+		# terminate shot
+		sw $zero, playerShoot
+
+		j FinishMovingShot
+
+	warpShotLeft:
+	# remove shot from right
+	lw $a2, backgroundColor
+	li $a0, 58
+	lw $a1, shotY
+	jal DrawPoint
+	addi $a0, $a0, -1
+	jal DrawPoint
+
+	# update xpos
+	li $a0, 4
+	sw $a0, shotX
+
+	# draw new pos
+	lw $a2 blueColor
+	jal DrawPoint
+
+	j FinishMovingShot
+
+	warpShotRight:
+	# remove shot from left
+	lw $a2, backgroundColor
+	li $a0, 4
+	lw $a1, shotY
+	jal DrawPoint
+	addi $a0, $a0, 1
+	jal DrawPoint
+
+	# update xpos
+	li $a0, 58
+	sw $a0, shotX
+
+	# draw new pos
+	lw $a2 blueColor
+	jal DrawPoint
+
+	FinishMovingShot:
+	lw $ra, 0($sp)		# put return back
+	addi $sp, $sp, 4
+
+	jr $ra
+
+
+
 MovePlayer:
 	# objective: erase player's position, look at the player's direction, increase position in the right direction, check collisions with walls and possibly step back
 
@@ -925,6 +1121,34 @@ MovePlayer:
 	addi $sp, $sp, -4
 	sw $ra, 0($sp)
 
+	# First handle shooting
+	lw $t0, shotFired
+	beq $t0, 0, skipShooting
+
+	sw $t0, playerShoot
+	sw $zero, shotFired # reset fired bit
+
+	lw $t8, playerState 
+	beq $t8, 0, forceShootUp
+	
+	lw $t9, playerDir
+	sw $t9, shotDir
+
+	j initShotCoords
+
+	forceShootUp:
+		sw $zero, shotDir
+
+	initShotCoords:
+		lw $t0, playerX
+		lw $t1, playerY
+		# Start shot from center of character
+		addi $t2, $t0, 1
+		addi $t3, $t1, 1
+		sw $t2, shotX
+		sw $t3, shotY
+
+	skipShooting:
 	# Check state
 	lw $t8, playerState 
 	beq $t8, 0,  pInitial
@@ -1487,7 +1711,12 @@ MoveEnemies:
 			sw $t2, VisibilityTimer($s2)
 
 		skipVisbilityStuff:
+
 		# "before actually moving check for being shot"
+
+		# Check if bullet active
+		#lw $t0, playerShoot
+
 
 		# Check mobility timer
 		lw $t1, MobilityTimer($s2)
