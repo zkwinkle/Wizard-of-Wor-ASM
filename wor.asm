@@ -1428,6 +1428,11 @@ MoveEnemies:
 			lw $a2, backgroundColor
 			jal DrawEnemy
 
+			# erase previous spot on radar
+			lw $a0, EnemyX($s2)
+			lw $a1, EnemyY($s2)
+			jal DrawEnemyOnRadar
+
 			sw $s0, EnemyY($s2) #save new pos
 
 			j eCheckGrid
@@ -1447,6 +1452,11 @@ MoveEnemies:
 			lw $a2, backgroundColor
 			jal DrawEnemy
 
+			# erase previous spot on radar
+			lw $a0, EnemyX($s2)
+			lw $a1, EnemyY($s2)
+			jal DrawEnemyOnRadar
+
 			sw $s0, EnemyY($s2) # new pos
 
 			j eCheckGrid
@@ -1464,6 +1474,11 @@ MoveEnemies:
 			lw $a1, EnemyY($s2)
 			lw $a2, backgroundColor
 			jal DrawEnemy
+
+			# erase previous spot on radar
+			lw $a0, EnemyX($s2)
+			lw $a1, EnemyY($s2)
+			jal DrawEnemyOnRadar
 
 			# check if enemy is warping to left
 			slti $t0, $s0, 57
@@ -1486,6 +1501,11 @@ MoveEnemies:
 			lw $a1, EnemyY($s2)
 			lw $a2, backgroundColor
 			jal DrawEnemy
+
+			# erase previous spot on radar
+			lw $a0, EnemyX($s2)
+			lw $a1, EnemyY($s2)
+			jal DrawEnemyOnRadar
 
 			# check if enemy is warping to right
 			slti $t0, $s0, 4
@@ -1586,9 +1606,6 @@ DrawEnemies:
 		lw $t0, Visible($t3) # get visibility
 		beq $t0, 0, SkipD1E
 
-		lw $a0, EnemyX($t3)
-		lw $a1, EnemyY($t3)
-
 		# get color
 		lw $t4, EnemyColor($t3)
 		beq $t4, 0, IsGreen
@@ -1614,7 +1631,13 @@ DrawEnemies:
 		sw $t1, 4($sp)
 		sw $t2, 0($sp)
 
+		lw $a0, EnemyX($t3)
+		lw $a1, EnemyY($t3)
 		jal DrawEnemy
+
+		lw $a0, EnemyX($t3)
+		lw $a1, EnemyY($t3)
+		jal DrawEnemyOnRadar
 
 		# restore counters
 		lw $t1, 4($sp)
@@ -1652,6 +1675,33 @@ DrawEnemy:
 	addi $a0, $a0, -2
 	jal DrawPoint
 
+	lw $ra, 0($sp)		# put return back
+	addi $sp, $sp, 4
+
+	jr $ra
+
+# $a0: enemy x
+# $a1: enemy y
+# $a2: enemy color
+DrawEnemyOnRadar:
+	# make space in stack for return address
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+
+	# If enemy is in the warp gate tunnels skip
+	blt $a0, 10, SkipDEOR
+	bgt $a0, 52, SkipDEOR
+
+	addi $a0, $a0, -10
+	addi $a1, $a1, -1
+	srl $a0, $a0, 2 # /4 borrando residuo
+	srl $a1, $a1, 2 
+	addi $a0, $a0, 26
+	addi $a1, $a1, 25
+	jal DrawPoint
+
+
+	SkipDEOR: # Skip Draw Enemy On Radar
 	lw $ra, 0($sp)		# put return back
 	addi $sp, $sp, 4
 
