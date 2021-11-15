@@ -15,13 +15,13 @@
 	enemyBlueColor:		.word 0x000e2973
 
 	# Level info
-	lvl:			.word 0  # Denotes the current lvl, 1-3
+	lvl:			.word 1  # Denotes the current lvl, 1-3
 
 	# Player info
 	playerDir:		.word 0 # 0=up, 1=down, 2=right, 3=left
 	playerX:		.word 0
 	playerY:		.word 0
-	lives:			.word 0
+	lives:			.word 0 
 	playerState:		.word 0 # 0=INITIAL, 1=MOVING, 2=STATIC
 	kills:			.word 0
 
@@ -253,8 +253,8 @@ BeginGame:
 	sw $t0, lives
 		
 
-# $s0 se usa en standby, en MovePlayer, en SpawnEnemy, en MoveEnemies y en MoveShot
-# $s1 se usa en SpawnEnemy, en MoveEnemies y en DrawLives
+# $s0 se usa en standby, en MovePlayer, en SpawnEnemy, en MoveEnemies, en MoveShot y en DrawLvls
+# $s1 se usa en SpawnEnemy, en MoveEnemies, en DrawLives y en DrawLvls
 # $s2 se usa en el loop inicial de spawnear enemigos iniciales (spawnInitialEnemies), en MoveEnemies y en DrawLives
 # $s3 se usa en MoveEnemies y DrawLives
 # $s6 guarda la cantidad de enemigos iniciales
@@ -263,6 +263,7 @@ NewRound:
 	# Initializa static data
 	sw $zero, kills
 	jal ClearKills
+	
 	sw $zero, EnemiesSpawned
 
 	li $t1, 0 # i
@@ -291,6 +292,7 @@ NewRound:
 	jal ClearBoard
 
 	jal DrawMap
+	jal DrawLvls
 
 NewLife:
 	li $t0, 1
@@ -314,6 +316,7 @@ DrawObjects:
 	jal MovePlayer
 	jal MoveShot
 	jal MoveEnemies
+	jal CheckWinGame
 
 # Wait and read buttons
 Begin_standby:	
@@ -379,6 +382,22 @@ LoseGame:
 	syscall		#
 
 	j NewGame
+
+CheckWinGame:
+	lw $t0, kills
+	bge $t0, 8, WinLvl
+	jr $ra
+
+WinLvl:
+	li $a0, 1000	#
+	li $v0, 32	# pause for 1 seconds
+	syscall		#
+
+	lw $t0, lvl
+	beq $t0, 3, LoseGame # twice the pause!
+	addi $t0, $t0, 1
+	sw $t0, lvl
+	j NewRound
 
 # AdjustDir  changes
 AdjustDir: 
@@ -1451,6 +1470,32 @@ DrawPlayer:
 		jal DrawPoint
 		j PDDone
 	PDDone:
+
+	lw $ra, 0($sp)		# put return back
+	addi $sp, $sp, 4
+
+	jr $ra
+
+DrawLvls:
+	# make space in stack for return address
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+
+	lw $s1, lvl
+	li $s0, 0
+
+	lw $a2, redColor
+	li $a0, 57
+	li $a1, 1
+	li $a3, 4
+	DrawLvlsLoop:
+		jal DrawVerticalLine
+		addi $a0, $a0, 2
+		addi $a3, $a3, 1
+
+		addi $s0, $s0, 1
+		blt $s0, $s1, DrawLvlsLoop
+
 
 	lw $ra, 0($sp)		# put return back
 	addi $sp, $sp, 4
