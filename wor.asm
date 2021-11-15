@@ -248,28 +248,18 @@ BeginGame:
 	syscall
 
 	# Set player lives
-	li $t0, 3
+	li $t0, 4
 	sw $t0, lives
 		
 
 # $s0 se usa en standby, en MovePlayer, en SpawnEnemy y en MoveEnemies
-# $s1 se usa en SpawnEnemy y en MoveEnemies
-# $s2 se usa en el loop inicial de spawnear enemigos iniciales (spawnInitialEnemies) y en MoveEnemies
-# $s3 se usa en MoveEnemies
+# $s1 se usa en SpawnEnemy, en MoveEnemies y en DrawLives
+# $s2 se usa en el loop inicial de spawnear enemigos iniciales (spawnInitialEnemies), en MoveEnemies y en DrawLives
+# $s3 se usa en MoveEnemies y DrawLives
 # $s6 guarda la cantidad de enemigos iniciales
 # $s7 guarda el counter/timer para spawns de enemigos
 NewRound:
 	# Initializa static data
-	li $t0, 1
-	sw $t0, playerDir
-	li $t0, 50
-	sw $t0, playerX
-	li $t0, 25
-	sw $t0, playerY
-	li $t0, 0
-	sw $t0, playerShoot
-	li $t0, 0
-	sw $t0, playerState
 	li $t0, 0
 	sw $t0, kills
 	li $t0, 0
@@ -301,10 +291,24 @@ NewRound:
 	jal ClearBoard
 
 	jal DrawMap
+
+NewLife:
+	li $t0, 1
+	sw $t0, playerDir
+	li $t0, 50
+	sw $t0, playerX
+	li $t0, 25
+	sw $t0, playerY
+	li $t0, 0
+	sw $t0, playerShoot
+	li $t0, 0
+	sw $t0, playerState
+
+	jal DrawLives
 	
 	li $a0, 200	#
 	li $v0, 32	# pause for 0.2 second
-		syscall		#
+	syscall		#
 
 DrawObjects: 
 	jal MovePlayer
@@ -335,8 +339,47 @@ EndStandby:
 	bne $s0, $zero, DrawObjects
 	jal AdjustDir_none
 	j DrawObjects
-		
-		
+
+PlayerDeath:
+	li $a0, 200	#
+	li $v0, 32	# pause for 0.2 seconds
+	syscall		#
+
+	# erase player's cadaver
+	lw $a0, playerX
+	lw $a1, playerY
+	lw $a2, backgroundColor
+	addi $a3, $a1, 2
+	jal DrawVerticalLine
+	addi $a0, $a0, 1
+	jal DrawVerticalLine
+	addi $a0, $a0, 1
+	jal DrawVerticalLine
+
+	# open gate
+	li $a0, 50
+	li $a1, 24
+	li $a3, 52
+	jal DrawHorizontalLine
+
+	# remove 1 life
+	lw $t0, lives
+	addi $t0, $t0, -1
+
+	# lose game if out of lives
+	beq $t0, $zero, LoseGame
+
+	# if not update lives and begin new round
+	sw $t0, lives
+	j NewLife
+
+LoseGame:
+	li $a0, 1000	#
+	li $v0, 32	# pause for 1 seconds
+	syscall		#
+
+	j NewGame
+
 # AdjustDir  changes
 AdjustDir: 
 	lw $a0, 0xFFFF0004		# Load button pressed
@@ -871,6 +914,22 @@ MovePlayer:
 	# Check state
 	lw $t8, playerState 
 	beq $t8, 0,  pInitial
+
+	# check collision with enemy
+	lw $a0, playerX
+	lw $a1, playerY
+	li $a2, 3
+	jal CheckEnemiesCollisions
+	beq $v0, -1, NoPECollisions
+
+	# lose a life
+	addi $sp, $sp, 4 # clear stack
+	j PlayerDeath
+
+
+	# Check other states
+	NoPECollisions: # No Player-Enemy Collisions
+	lw $t8, playerState 
 	beq $t8, 1,  pMoving
 	beq $t8, 2,  pStatic
 
@@ -1156,6 +1215,53 @@ DrawPlayer:
 		j PDDone
 	PDDone:
 
+	lw $ra, 0($sp)		# put return back
+	addi $sp, $sp, 4
+
+	jr $ra
+
+DrawLives:
+	# make space in stack for return address
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+
+	# clear space
+	lw $a2, backgroundColor
+	li $a0, 55
+	li $a1, 17
+	li $a3, 27
+	jal DrawVerticalLine
+	addi $a0, $a0, 1
+	jal DrawVerticalLine
+	addi $a0, $a0, 1
+	jal DrawVerticalLine
+
+	lw $a2, whiteColor
+	lw $s3, lives
+	addi $s3, $s3, -1 # draw 1 life less
+			  # for ex: with 4 lives only 3 should be drawn
+			  # on last life none should be drawn
+	li $s0, 0
+	li $s1, 25 # y coord of first life
+	D1L: # D1L = Draw 1 Life
+		# finish when $s0 == lives
+		beq $s0, $s3, D1LEnd
+
+		li $a0, 55
+		sll $t1, $s0, 2
+		sub $a1, $s1, $t1
+		addi $a3, $a1, 2
+		jal DrawVerticalLine
+		addi $a0, $a0, 2
+		jal DrawVerticalLine
+		addi $a0, $a0, -1
+		addi $a1, $a1, 2
+		jal DrawPoint
+
+		addi $s0, $s0, 1
+		j D1L
+	
+	D1LEnd:
 	lw $ra, 0($sp)		# put return back
 	addi $sp, $sp, 4
 
@@ -1545,6 +1651,63 @@ DrawEnemy:
 	addi $a1, $a1, 2
 	addi $a0, $a0, -2
 	jal DrawPoint
+
+	lw $ra, 0($sp)		# put return back
+	addi $sp, $sp, 4
+
+	jr $ra
+
+# $a0 x coordinate
+# $a1 y coordinate
+# $a2 size (assumes square)
+# $v0 enemy index if collision [0,7], -1 = no collision
+CheckEnemiesCollisions:
+	# make space in stack for return address
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+
+	li $t1, 0 # i (counter)
+	li $t2, 0 # offset
+	add $t8, $a0, $a2
+	add $t9, $a1, $a2
+	C1EC: # C1EC = Check 1 Enemy Collision
+		sll $t4, $t2, 2 # x4
+		lw $t0, Active($t4) # get activeness
+		beq $t0, 0, SkipC1EC
+
+		# left of enemy <= right of obj
+		lw $t6, EnemyX($t4)
+		addi $t6, $t6, -1
+		slt $t3, $t6, $t8
+		beq $t3, $zero, SkipC1EC
+
+		# top of enemy <= bottom of obj
+		lw $t7, EnemyY($t4)
+		addi $t7, $t7, -1
+		slt $t3, $t7, $t9
+		beq $t3, $zero, SkipC1EC
+
+		# left of obj <= right of enemy
+		addi $t6, $t6, 4
+		slt $t3, $a0, $t6
+		beq $t3, $zero, SkipC1EC
+
+		# top of obj <= bottom of enemy
+		addi $t7, $t7, 4
+		slt $t3, $a1, $t7
+		beq $t3, $zero, SkipC1EC
+
+		# If program gets to this point it means they are colliding
+		move $v0, $t1
+		j FinishCEC
+
+	SkipC1EC:
+		addi $t1, $t1, 1 
+		addi $t2, $t2, ENEMYOFFSET
+		blt $t1, 8, C1EC
+	li $v0, -1
+	
+	FinishCEC:
 
 	lw $ra, 0($sp)		# put return back
 	addi $sp, $sp, 4
