@@ -1458,6 +1458,19 @@ DrawPlayer:
 
 	jr $ra
 
+# Draws only the latest kill
+DrawKill:
+	# make space in stack for return address
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+
+
+
+	lw $ra, 0($sp)		# put return back
+	addi $sp, $sp, 4
+
+	jr $ra
+
 DrawLives:
 	# make space in stack for return address
 	addi $sp, $sp, -4
@@ -1715,9 +1728,65 @@ MoveEnemies:
 		# "before actually moving check for being shot"
 
 		# Check if bullet active
-		#lw $t0, playerShoot
+		lw $t0, playerShoot
+		beq $t0, 0, skipShootingStuff
 
+		# check bullet X inside enemy
+		lw $t0, shotX
+		lw $t1, EnemyX($s2)
+		# bullet >= left of enemy
+		slt $t2, $t0, $t1
+		xor $t2, 1
+		beq $t2, $zero, skipShootingStuff
+		# bullet <= right of enemy
+		addi $t1, $t1, 3
+		slt $t2, $t0, $t1
+		beq $t2, $zero, skipShootingStuff
 
+		# check bullet Y inside enemy
+		lw $t0, shotY
+		lw $t1, EnemyY($s2)
+		# bullet >= top of enemy
+		slt $t2, $t0, $t1
+		xor $t2, 1
+		beq $t2, $zero, skipShootingStuff
+		# bullet <= bottom of enemy
+		addi $t1, $t1, 3
+		slt $t2, $t0, $t1
+		beq $t2, $zero, skipShootingStuff
+
+		# at this point it means the enemy has been hit
+		lw $a2, backgroundColor
+		# First kill bullet
+		# erase shot
+		lw $a0, shotX
+		lw $a1, shotY
+		jal DrawPoint
+		# terminate shot
+		sw $zero, playerShoot
+
+		# erase X
+		lw $a0, EnemyX($s2)
+		lw $a1, EnemyY($s2)
+		jal DrawEnemy
+
+		# erase spot on radar
+		lw $a0, EnemyX($s2)
+		lw $a1, EnemyY($s2)
+		jal DrawEnemyOnRadar
+
+		# kill enemy
+		sw $zero, Active($s2)
+
+		# increase kill counter
+		lw $t0, kills
+		addi $t0, $t0, 1
+		sw $t0, kills
+		jal DrawKill
+
+		j SkipM1E
+
+		skipShootingStuff:
 		# Check mobility timer
 		lw $t1, MobilityTimer($s2)
 		bgtz $t1, DecreaseMobilityTimer
