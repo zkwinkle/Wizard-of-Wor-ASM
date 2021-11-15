@@ -359,6 +359,11 @@ PlayerDeath:
 	addi $a0, $a0, 1
 	jal DrawVerticalLine
 
+	# erase current bullet
+	lw $a0, shotX
+	lw $a1, shotY
+	jal DrawPoint
+
 	# open gate
 	li $a0, 50
 	li $a1, 24
