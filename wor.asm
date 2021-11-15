@@ -3,8 +3,6 @@
 .eqv ENEMYOFFSET 8 # if this is change the calc of $s1 in 'SpawnEnemy:' must be changed
 .data
 	# Colors
-	colorOne:		.word 0x00ff8000
-	colorTwo:		.word 0x00c00080
 	whiteColor:		.word 0x00ffffff
 	backgroundColor:	.word 0x00000000
 	blueColor:		.word 0x001c57fe
