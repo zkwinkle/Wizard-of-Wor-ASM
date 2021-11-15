@@ -252,9 +252,10 @@ BeginGame:
 	sw $t0, lives
 		
 
-# $s0 se usa en standby, en MovePlayer y en SpawnEnemy
-# $s1 se usa en SpawnEnemy
-# $s2 se usa en el loop inicial de spawnear enemigos iniciales (spawnInitialEnemies)
+# $s0 se usa en standby, en MovePlayer, en SpawnEnemy y en MoveEnemies
+# $s1 se usa en SpawnEnemy y en MoveEnemies
+# $s2 se usa en el loop inicial de spawnear enemigos iniciales (spawnInitialEnemies) y en MoveEnemies
+# $s3 se usa en MoveEnemies
 # $s6 guarda la cantidad de enemigos iniciales
 # $s7 guarda el counter/timer para spawns de enemigos
 NewRound:
@@ -308,17 +309,17 @@ NewRound:
 DrawObjects: 
 	jal MovePlayer
 	jal SpawnEnemy
-	jal DrawEnemies
+	jal MoveEnemies
 
 # Wait and read buttons
 Begin_standby:	
 		move $s0, $zero
-		li $t0, 0x00000005			# 5 = 50ms delay
+		li $t0, 0x00000020 # how many ms of delay
 	
 Standby:
 	blez $t0, EndStandby
-	li $a0, 10	#
-	li $v0, 32	# pause for 10 milisec
+	li $a0, 1	#
+	li $v0, 32	# pause for 1 milisec
 	syscall		#
 	
 	addi $t0, $t0, -1 		# decrement counter
@@ -1160,7 +1161,7 @@ DrawPlayer:
 
 	jr $ra
 
-# $a1, upper bound
+# $a1, upper bound exclusive
 # $a0, receives random int
 RandomInt:
 	li $v0, 42
@@ -1171,11 +1172,15 @@ RandomInt:
 # $a0, enemy color (0-3)
 # $v0, return's counter
 CalcMobilityTime:
-	# maps $a0=0-3 to $v0=[9, 7, 5, 3]
+	# maps $a0=0-3 to $v0=[7, 5, 3, 2]
 	li $v0, 3
-	sub $v0, $v0, $a0
-	sll $v0, $v0, 2
-	addi $v0, $v0, 3
+	sub $v0, $v0, $a0 # $v0 = 3-color
+	sll $v0, $v0, 1 # x2
+	bne $v0, $zero, add1 # add 2 if 0, add 1 to others
+	add2:
+		addi $v0, $v0, 1
+	add1:
+		addi $v0, $v0, 1
 	jr $ra
 
 
@@ -1262,6 +1267,8 @@ SpawnEnemy:
 		addi $s0, $s0, 1
 		sw $s0, EnemiesSpawned
 
+		j FinishSpawn
+
 	DecreaseSpawnTimer:
 		addi $s7, $s7, -1
 
@@ -1270,6 +1277,195 @@ SpawnEnemy:
 		addi $sp, $sp, 4
 
 		jr $ra
+
+MoveEnemies:
+	# objective: check enemy activeness, then check/update its mobility timer, look at the enemie's direction, erase previous position, increase position in the right direction, check collisions with walls and possibly step back
+
+	# make space in stack for return address
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+
+	li $s1, 0 # i (counter)
+	li $s3, 0 # offset
+	M1E: # M1E = Move 1 Enemy
+		sll $s2, $s3, 2 # x4
+		lw $t0, Active($s2) # get activeness
+		beq $t0, 0, SkipM1E
+
+		# "invis timer and stuff"
+
+		# "before actually moving check for being shot"
+
+		# Check mobility timer
+		lw $t1, MobilityTimer($s2)
+		bgtz $t1, DecreaseMobilityTimer
+	
+		# Check Dir
+		lw $t9, EnemyDir($s2)
+		beq $t9, 0, eMUp
+		beq $t9, 1, eMDown
+		beq $t9, 2, eMRight
+		beq $t9, 3, eMLeft
+
+		eMUp:
+			lw $a0, EnemyX($s2)
+			lw $s0, EnemyY($s2)
+			addi $s0, $s0, -1
+			move $a1, $s0
+			li $a2, 3
+			jal CheckWallCollisions
+			bne $v0, $zero, eMCollide
+
+			# erase previous X
+			lw $a0, EnemyX($s2)
+			lw $a1, EnemyY($s2)
+			lw $a2, backgroundColor
+			jal DrawEnemy
+
+			sw $s0, EnemyY($s2) #save new pos
+
+			j eCheckGrid
+
+                eMDown:
+			lw $a0, EnemyX($s2)
+			lw $s0, EnemyY($s2)
+			addi $s0, $s0, 1
+			move $a1, $s0
+			li $a2, 3
+			jal CheckWallCollisions
+			bne $v0, $zero, eMCollide
+
+			# erase previous X
+			lw $a0, EnemyX($s2)
+			lw $a1, EnemyY($s2)
+			lw $a2, backgroundColor
+			jal DrawEnemy
+
+			sw $s0, EnemyY($s2) # new pos
+
+			j eCheckGrid
+                eMRight:
+			lw $s0, EnemyX($s2)
+			lw $a1, EnemyY($s2)
+			addi $s0, $s0, 1
+			move $a0, $s0
+			li $a2, 3
+			jal CheckWallCollisions
+			bne $v0, $zero, eMCollide
+
+			# erase previous X
+			lw $a0, EnemyX($s2)
+			lw $a1, EnemyY($s2)
+			lw $a2, backgroundColor
+			jal DrawEnemy
+
+			# check if enemy is warping to left
+			lw $a0, EnemyX($s2)
+			slti $t0, $a0, 57
+			beq $t0, $zero, eWarpLeft
+
+			sw $s0, EnemyX($s2) # new pos
+
+			j eCheckGrid
+                eMLeft:
+			lw $s0, EnemyX($s2)
+			lw $a1, EnemyY($s2)
+			addi $s0, $s0, -1
+			move $a0, $s0
+			li $a2, 3
+			jal CheckWallCollisions
+			bne $v0, $zero, eMCollide
+
+			# erase previous X
+			lw $a0, EnemyX($s2)
+			lw $a1, EnemyY($s2)
+			lw $a2, backgroundColor
+			jal DrawEnemy
+
+			# check if enemy is warping to right
+			lw $a0, EnemyX($s2)
+			slti $t0, $a0, 4
+			bne $t0, $zero, eWarpRight
+
+			sw $s0, EnemyX($s2) # new pos
+
+			j eCheckGrid
+
+		eCheckGrid:
+			# check if enemy's pos aligns with the grid and randomly maybe switch dirs
+
+			# check if X multiple of 4 + 2
+			lw $t0, EnemyX($s2)
+			addi $t2, $t0, -2
+			srl $t1, $t2, 2
+			sll $t1, $t1, 2
+			bne $t1, $t2, eMoveDone
+
+			# check if Y multiple of 4 + 1
+			lw $t0, EnemyY($s2)
+			addi $t2, $t0, -1
+			srl $t1, $t2, 2
+			sll $t1, $t1, 2
+			bne $t1, $t2, eMoveDone
+
+			# if enemy aligned with grid then random chance to turn
+			# 1/4 chance
+			li $a1, 4
+			jal RandomInt
+			beq $a0, $zero, eChangeDir
+
+			j eMoveDone
+
+		eMCollide:
+			# change dir
+		eChangeDir:
+			lw $t0, EnemyDir($s2) # get current dir
+			eChangeDirLoop: # make sure it doesn't repick the same one
+				li $a1, 4
+				jal RandomInt
+				beq $a0, $t0, eChangeDirLoop
+			
+			sw $a0, EnemyDir($s2) # new dir
+			j eMoveDone
+
+		eWarpLeft:
+			# update xpos
+			li $t0, 4
+			sw $t0, EnemyX($s2) # new pos
+
+			j eMoveDone
+
+		eWarpRight:
+			# update xpos
+			li $t0, 56
+			sw $t0, EnemyX($s2) # new pos
+
+			j eMoveDone
+
+		eMoveDone:
+			# get color
+			lw $a0, EnemyColor($s2)
+			
+			# Reset mobility timer
+			jal CalcMobilityTime
+			sw $v0, MobilityTimer($s2)
+			j SkipM1E
+
+		DecreaseMobilityTimer:
+			lw $t1, MobilityTimer($s2)
+			addi $t1, $t1, -1
+			sw $t1, MobilityTimer($s2)
+
+		SkipM1E:
+			addi $s1, $s1, 1 
+			addi $s3, $s3, ENEMYOFFSET
+			blt $s1, 8, M1E
+
+	jal DrawEnemies
+	lw $ra, 0($sp)		# put return back
+	addi $sp, $sp, 4
+
+	jr $ra
 
 DrawEnemies:
 	# make space in stack for return address
@@ -1281,6 +1477,9 @@ DrawEnemies:
 	D1E: # D1E = Draw 1 Enemy
 		sll $t3, $t2, 2 # x4
 		lw $t0, Active($t3) # get activeness
+		beq $t0, 0, SkipD1E
+
+		lw $t0, Visible($t3) # get visibility
 		beq $t0, 0, SkipD1E
 
 		lw $a0, EnemyX($t3)
@@ -1318,7 +1517,7 @@ DrawEnemies:
 		lw $t2, 0($sp)
 		addi $sp, $sp, 8
 
-		SkipD1E:
+	SkipD1E:
 		addi $t1, $t1, 1 
 		addi $t2, $t2, ENEMYOFFSET
 		blt $t1, 8, D1E
