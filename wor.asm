@@ -1360,8 +1360,7 @@ MoveEnemies:
 			jal DrawEnemy
 
 			# check if enemy is warping to left
-			lw $a0, EnemyX($s2)
-			slti $t0, $a0, 57
+			slti $t0, $s0, 57
 			beq $t0, $zero, eWarpLeft
 
 			sw $s0, EnemyX($s2) # new pos
@@ -1383,8 +1382,7 @@ MoveEnemies:
 			jal DrawEnemy
 
 			# check if enemy is warping to right
-			lw $a0, EnemyX($s2)
-			slti $t0, $a0, 4
+			slti $t0, $s0, 4
 			bne $t0, $zero, eWarpRight
 
 			sw $s0, EnemyX($s2) # new pos
