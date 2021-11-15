@@ -1,5 +1,5 @@
 .eqv GENID 1 # pseudo-random generator id
-.eqv VISIBILITYTIME 180 # counter for how long enemies should stay visible, 180 = 9s (?)
+.eqv VISIBILITYTIME 50 # counter for how long enemies should stay visible, 180 = 9s (?)
 .eqv ENEMYOFFSET 8 # if this is change the calc of $s1 in 'SpawnEnemy:' must be changed
 .data
 	# Colors
@@ -667,6 +667,16 @@ DrawMap:
 
 	jr $ra
 
+# $a0 left x coordinate
+# $a1 top y coordinate
+# $a2 right x coordinate
+# $a3 bottom y coordinate
+# $v0 = 1 if collision, = 0 if no collision
+CheckWallCollisionsRect:
+	move $t8, $a2
+	move $t9, $a3
+	j CWCBypassSquare
+
 # $a0 x coordinate
 # $a1 y coordinate
 # $a2 size (assumes square)
@@ -674,6 +684,10 @@ DrawMap:
 CheckWallCollisions:
 	add $t9, $a1, $a2
 	add $t8, $a0, $a2
+
+	CWCBypassSquare: #Check Wall Collisions, Bypass Square
+			# (For calling with different $t9/$t8)
+
 	# top edge
 	slti $v0, $a1, 1
 	bne $v0, $zero, wallColDone
@@ -709,29 +723,29 @@ CheckWallCollisions:
 		# top horizontal
 		slti $t2, $a1, 5
 		slti $t3, $t9, 5
-		nor $t3, $t3, $zero
+		xor $t3, 1
 		and $t4, $t2, $t3
 		slti $t5, $a0, 18
 		slti $t6, $t8, 14
-		nor $t6, $t6, $zero
+		xor $t6, 1
 		and $t7, $t5, $t6
 		and $v0, $t4, $t7
 		bne $v0, $zero, wallColDone
 		# bottom horizontal
 		slti $t2, $a1, 13
 		slti $t3, $t9, 13
-		nor $t3, $t3, $zero
+		xor $t3, 1
 		and $t4, $t2, $t3
 		and $v0, $t4, $t7
 		bne $v0, $zero, wallColDone
 		# vertical
 		slti $t2, $a1, 13
 		slti $t3, $t9, 5
-		nor $t3, $t3, $zero
+		xor $t3, 1
 		and $t4, $t2, $t3
 		slti $t5, $a0, 18
 		slti $t6, $t8, 18
-		nor $t6, $t6, $zero
+		xor $t6, 1
 		and $t7, $t5, $t6
 		and $v0, $t4, $t7
 		bne $v0, $zero, wallColDone
@@ -739,29 +753,29 @@ CheckWallCollisions:
 		# top horizontal
 		slti $t2, $a1, 5
 		slti $t3, $t9, 5
-		nor $t3, $t3, $zero
+		xor $t3, 1
 		and $t4, $t2, $t3
 		slti $t5, $a0, 50
 		slti $t6, $t8, 46
-		nor $t6, $t6, $zero
+		xor $t6, 1
 		and $t7, $t5, $t6
 		and $v0, $t4, $t7
 		bne $v0, $zero, wallColDone
 		# bottom horizontal
 		slti $t2, $a1, 13
 		slti $t3, $t9, 13
-		nor $t3, $t3, $zero
+		xor $t3, 1
 		and $t4, $t2, $t3
 		and $v0, $t4, $t7
 		bne $v0, $zero, wallColDone
 		# vertical
 		slti $t2, $a1, 13
 		slti $t3, $t9, 5
-		nor $t3, $t3, $zero
+		xor $t3, 1
 		and $t4, $t2, $t3
 		slti $t5, $a0, 46
 		slti $t6, $t8, 46
-		nor $t6, $t6, $zero
+		xor $t6, 1
 		and $t7, $t5, $t6
 		and $v0, $t4, $t7
 		bne $v0, $zero, wallColDone
@@ -769,33 +783,33 @@ CheckWallCollisions:
 		# top vertical
 		slti $t2, $a1, 9
 		slti $t3, $t9, 5
-		nor $t3, $t3, $zero
+		xor $t3, 1
 		and $t4, $t2, $t3
 		slti $t5, $a0, 30
 		slti $t6, $t8, 30
-		nor $t6, $t6, $zero
+		xor $t6, 1
 		and $t7, $t5, $t6
 		and $v0, $t4, $t7
 		bne $v0, $zero, wallColDone
 		# bottom vertical
 		slti $t2, $a1, 13
 		slti $t3, $t9, 9
-		nor $t3, $t3, $zero
+		xor $t3, 1
 		and $t4, $t2, $t3
 		slti $t5, $a0, 22
 		slti $t6, $t8, 22
-		nor $t6, $t6, $zero
+		xor $t6, 1
 		and $t7, $t5, $t6
 		and $v0, $t4, $t7
 		bne $v0, $zero, wallColDone
 		# horizontal
 		slti $t2, $a1, 9
 		slti $t3, $t9, 9
-		nor $t3, $t3, $zero
+		xor $t3, 1
 		and $t4, $t2, $t3
 		slti $t5, $a0, 30
 		slti $t6, $t8, 22
-		nor $t6, $t6, $zero
+		xor $t6, 1
 		and $t7, $t5, $t6
 		and $v0, $t4, $t7
 		bne $v0, $zero, wallColDone
@@ -803,33 +817,33 @@ CheckWallCollisions:
 		# top vertical
 		slti $t2, $a1, 17
 		slti $t3, $t9, 13
-		nor $t3, $t3, $zero
+		xor $t3, 1
 		and $t4, $t2, $t3
 		slti $t5, $a0, 26
 		slti $t6, $t8, 26
-		nor $t6, $t6, $zero
+		xor $t6, 1
 		and $t7, $t5, $t6
 		and $v0, $t4, $t7
 		bne $v0, $zero, wallColDone
 		# bottom vertical
 		slti $t2, $a1, 21
 		slti $t3, $t9, 17
-		nor $t3, $t3, $zero
+		xor $t3, 1
 		and $t4, $t2, $t3
 		slti $t5, $a0, 18
 		slti $t6, $t8, 18
-		nor $t6, $t6, $zero
+		xor $t6, 1
 		and $t7, $t5, $t6
 		and $v0, $t4, $t7
 		bne $v0, $zero, wallColDone
 		# horizontal
 		slti $t2, $a1, 17
 		slti $t3, $t9, 17
-		nor $t3, $t3, $zero
+		xor $t3, 1
 		and $t4, $t2, $t3
 		slti $t5, $a0, 26
 		slti $t6, $t8, 18
-		nor $t6, $t6, $zero
+		xor $t6, 1
 		and $t7, $t5, $t6
 		and $v0, $t4, $t7
 		bne $v0, $zero, wallColDone
@@ -837,33 +851,33 @@ CheckWallCollisions:
 		# top vertical
 		slti $t2, $a1, 9
 		slti $t3, $t9, 5
-		nor $t3, $t3, $zero
+		xor $t3, 1
 		and $t4, $t2, $t3
 		slti $t5, $a0, 34
 		slti $t6, $t8, 34
-		nor $t6, $t6, $zero
+		xor $t6, 1
 		and $t7, $t5, $t6
 		and $v0, $t4, $t7
 		bne $v0, $zero, wallColDone
 		# bottom vertical
 		slti $t2, $a1, 13
 		slti $t3, $t9, 9
-		nor $t3, $t3, $zero
+		xor $t3, 1
 		and $t4, $t2, $t3
 		slti $t5, $a0, 42
 		slti $t6, $t8, 42
-		nor $t6, $t6, $zero
+		xor $t6, 1
 		and $t7, $t5, $t6
 		and $v0, $t4, $t7
 		bne $v0, $zero, wallColDone
 		# horizontal
 		slti $t2, $a1, 9
 		slti $t3, $t9, 9
-		nor $t3, $t3, $zero
+		xor $t3, 1
 		and $t4, $t2, $t3
 		slti $t5, $a0, 42
 		slti $t6, $t8, 34
-		nor $t6, $t6, $zero
+		xor $t6, 1
 		and $t7, $t5, $t6
 		and $v0, $t4, $t7
 		bne $v0, $zero, wallColDone
@@ -871,33 +885,33 @@ CheckWallCollisions:
 		# top vertical
 		slti $t2, $a1, 17
 		slti $t3, $t9, 13
-		nor $t3, $t3, $zero
+		xor $t3, 1
 		and $t4, $t2, $t3
 		slti $t5, $a0, 38
 		slti $t6, $t8, 38
-		nor $t6, $t6, $zero
+		xor $t6, 1
 		and $t7, $t5, $t6
 		and $v0, $t4, $t7
 		bne $v0, $zero, wallColDone
 		# bottom vertical
 		slti $t2, $a1, 21
 		slti $t3, $t9, 17
-		nor $t3, $t3, $zero
+		xor $t3, 1
 		and $t4, $t2, $t3
 		slti $t5, $a0, 46
 		slti $t6, $t8, 46
-		nor $t6, $t6, $zero
+		xor $t6, 1
 		and $t7, $t5, $t6
 		and $v0, $t4, $t7
 		bne $v0, $zero, wallColDone
 		# horizontal
 		slti $t2, $a1, 17
 		slti $t3, $t9, 17
-		nor $t3, $t3, $zero
+		xor $t3, 1
 		and $t4, $t2, $t3
 		slti $t5, $a0, 46
 		slti $t6, $t8, 38
-		nor $t6, $t6, $zero
+		xor $t6, 1
 		and $t7, $t5, $t6
 		and $v0, $t4, $t7
 		bne $v0, $zero, wallColDone
@@ -1384,6 +1398,51 @@ SpawnEnemy:
 
 		jr $ra
 
+# $a0: enemy x
+# $a1: enemy y
+# $v0 = 1 if LOS, $v0 = 0 if no LOS
+Check_LOS: # Check LOS
+	# make space in stack for return address
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+
+	# check who's to the left
+	lw $t0, playerX
+	ble $t0, $a0, pLeftOfe
+
+	eLeftOfp:
+	move $a2, $t0
+	j LOS_CompareY
+
+	pLeftOfe:
+	move $a2, $a0
+	move $a0, $t0
+
+	LOS_CompareY:
+	# check who's above
+	lw $t1, playerY
+	ble $t1, $a1, pAboveOfe
+
+	eAboveOfp:
+	move $a3, $t1
+	j LOS_CallCollision
+
+	pAboveOfe:
+	move $a3, $a1
+	move $a1, $t1
+
+	LOS_CallCollision:
+
+	jal CheckWallCollisionsRect
+	xor $v0, 1 # flip return because collision = no los
+
+	lw $ra, 0($sp)		# put return back
+	addi $sp, $sp, 4
+
+	jr $ra
+
+
+
 MoveEnemies:
 	# objective: check enemy activeness, then check/update its mobility timer, look at the enemie's direction, erase previous position, increase position in the right direction, check collisions with walls and possibly step back
 
@@ -1399,7 +1458,35 @@ MoveEnemies:
 		beq $t0, 0, SkipM1E
 
 		# "invis timer and stuff"
+		lw $t1, EnemyColor($s2)
+		beq $t1, 0, skipVisbilityStuff # basic enemies don't go invis
 
+		lw $t1, Visible($s2)
+		lw $t2, VisibilityTimer($s2)
+
+		beq $t1, 0, C1ELOS # if invis check los
+		beq $t2, 0, TurnInvis # if invis timer ran out turn invis
+		# else decrease timer
+			addi $t2, $t2, -1
+			sw $t2, VisibilityTimer($s2)
+			j C1ELOS
+
+		TurnInvis:
+			sw $zero, Visible($s2)
+
+		C1ELOS: # C1E Line Of Sight
+			lw $a0, EnemyX($s2)
+			lw $a1, EnemyY($s2)
+			jal Check_LOS
+			beq $v0, 0, skipVisbilityStuff
+			
+			# Reset vis timer if there IS los
+			li $t2, 1
+			sw $t2, Visible($s2)
+			li $t2, VISIBILITYTIME
+			sw $t2, VisibilityTimer($s2)
+
+		skipVisbilityStuff:
 		# "before actually moving check for being shot"
 
 		# Check mobility timer
@@ -1564,6 +1651,8 @@ MoveEnemies:
 			li $t0, 56
 			sw $t0, EnemyX($s2) # new pos
 
+
+jal CheckWallCollisionsRect
 			j eMoveDone
 
 		eMoveDone:
@@ -1603,9 +1692,6 @@ DrawEnemies:
 		lw $t0, Active($t3) # get activeness
 		beq $t0, 0, SkipD1E
 
-		lw $t0, Visible($t3) # get visibility
-		beq $t0, 0, SkipD1E
-
 		# get color
 		lw $t4, EnemyColor($t3)
 		beq $t4, 0, IsGreen
@@ -1631,10 +1717,14 @@ DrawEnemies:
 		sw $t1, 4($sp)
 		sw $t2, 0($sp)
 
+		lw $t0, Visible($t3) # get visibility
+		beq $t0, 0, SkipD1EMR
+
 		lw $a0, EnemyX($t3)
 		lw $a1, EnemyY($t3)
 		jal DrawEnemy
-
+		
+		SkipD1EMR: # SkipD1E minus radar
 		lw $a0, EnemyX($t3)
 		lw $a1, EnemyY($t3)
 		jal DrawEnemyOnRadar
@@ -1727,23 +1817,21 @@ CheckEnemiesCollisions:
 
 		# left of enemy <= right of obj
 		lw $t6, EnemyX($t4)
-		addi $t6, $t6, -1
 		slt $t3, $t6, $t8
 		beq $t3, $zero, SkipC1EC
 
 		# top of enemy <= bottom of obj
 		lw $t7, EnemyY($t4)
-		addi $t7, $t7, -1
 		slt $t3, $t7, $t9
 		beq $t3, $zero, SkipC1EC
 
 		# left of obj <= right of enemy
-		addi $t6, $t6, 4
+		addi $t6, $t6, 3
 		slt $t3, $a0, $t6
 		beq $t3, $zero, SkipC1EC
 
 		# top of obj <= bottom of enemy
-		addi $t7, $t7, 4
+		addi $t7, $t7, 3
 		slt $t3, $a1, $t7
 		beq $t3, $zero, SkipC1EC
 
