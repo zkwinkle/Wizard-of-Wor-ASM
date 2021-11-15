@@ -261,10 +261,9 @@ BeginGame:
 # $s7 guarda el counter/timer para spawns de enemigos
 NewRound:
 	# Initializa static data
-	li $t0, 0
-	sw $t0, kills
-	li $t0, 0
-	sw $t0, EnemiesSpawned
+	sw $zero, kills
+	jal ClearKills
+	sw $zero, EnemiesSpawned
 
 	li $t1, 0 # i
 	li $t2, 0 # offset
@@ -1459,12 +1458,60 @@ DrawPlayer:
 	jr $ra
 
 # Draws only the latest kill
+# Assumes it's called right after a new kill happens
 DrawKill:
 	# make space in stack for return address
 	addi $sp, $sp, -4
 	sw $ra, 0($sp)
 
+	lw $t0, kills
+	addi $t0, $t0, -1
+	sll $t2, $t0, 1
 
+	addi $a0, $t2, 9
+	li $a1, 27
+	addi $a3, $a1, 2
+	lw $a2, whiteColor
+	jal DrawVerticalLine
+
+	lw $ra, 0($sp)		# put return back
+	addi $sp, $sp, 4
+
+	jr $ra
+
+# visually clears the area where the kills are displayed
+ClearKills:
+	# make space in stack for return address
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+
+	lw $a2, backgroundColor
+	li $a0, 9
+	li $a1, 27
+	addi $a3, $a1, 2
+	# 0
+	jal DrawVerticalLine
+	addi $a0, $a0, 2
+	# 1
+	jal DrawVerticalLine
+	addi $a0, $a0, 2
+	# 2
+	jal DrawVerticalLine
+	addi $a0, $a0, 2
+	# 3
+	jal DrawVerticalLine
+	addi $a0, $a0, 2
+	# 4
+	jal DrawVerticalLine
+	addi $a0, $a0, 2
+	# 5
+	jal DrawVerticalLine
+	addi $a0, $a0, 2
+	# 6
+	jal DrawVerticalLine
+	addi $a0, $a0, 2
+	# 7
+	jal DrawVerticalLine
 
 	lw $ra, 0($sp)		# put return back
 	addi $sp, $sp, 4
