@@ -1,21 +1,16 @@
-MIPS-PONG
+Wizard of Wor-ASM
 ==========
 
-The age-old game of pong implemented in MIPS assembly.  Please excuse our mess. It's a work in progress!
+This project is a MIPS assembly copy of the old arcade game Wizard of Wor. 
 
-This is meant to be run in the MARS simulator.  It uses both the Bitmap Dislay and the Keyboard and Display MIMO Simulator tools.
-
-The MARS simulator had a bug a threading bug involving using multiple tools. A fix was published by the internet user [Confect](https://dtconfect.wordpress.com/2013/02/09/mars-mips-simulator-lockup-hackfix/). We also used Confect's [MIPS snake game](https://dtconfect.wordpress.com/projects/year2/mips-snake-and-primlib/) as a learning source.
-
-## Demo
-
-![Gif of Gameplay]
-(https://raw.githubusercontent.com/AndrewHamm/MIPS-Pong/master/GamePlay.gif)
+Forked from the [MIPS-PONG](https://github.com/AndrewHamm/MIPS-Pong) game, it uses some of the same basics and is also meant to be run in the MARS simulator.  It uses both the Bitmap Dislay and the Keyboard and Display MIMO Simulator tools.
 
 ## How To Run
 
-1. Open the Mars .jar file from our repo.
-2. Load the pong.asm file into Mars with File -> Open.
+The Mars copy that comes with this repo also comes from the MIPS-PONG repo. It fixes some bugs regarding the Bitmap Display and MMIO Simulator, go to the MIPS-PONG repo for more information.
+
+1. Open the Mars .jar file in the repo.
+2. Load the wor.asm file into Mars with File -> Open.
 3. Go to Run -> Assemble
 4. Go to tools -> Bitmap Display
 5. The Bitmap Display settings should be as follows:
@@ -30,9 +25,5 @@ The MARS simulator had a bug a threading bug involving using multiple tools. A f
 9. All controls should take place in the lower portion of the Keyboard and Display Simulator
 
 ## Controls
-
-For 1 player press 1
-For 2 player press 2
-
-Player 1 moves using the A and Z keys.
-Player 2 moves using the K and M keys.
+Move with WASD keys.
+Shoot with spacebar.
